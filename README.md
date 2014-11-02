@@ -1,0 +1,1 @@
+The Snowplow javascript tracker and php collector package, with Apache mod_rewrite example.
