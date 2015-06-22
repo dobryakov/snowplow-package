@@ -3,7 +3,7 @@
 include(dirname(__FILE__) . '/map.php');
 include(dirname(__FILE__) . '/mysql-connect.php');
 
-$query = 'SELECT * FROM raw order by id asc limit 100';
+$query = 'SELECT * FROM raw order by id asc limit 1000';
 $result = mysql_query($query) or die('Запрос не удался: ' . mysql_error());
 
 while ($line = mysql_fetch_array($result, MYSQL_ASSOC)) {
@@ -22,7 +22,7 @@ while ($line = mysql_fetch_array($result, MYSQL_ASSOC)) {
   }
 
   if ($d) {
-    $d['created_at'] = time();
+    $d['created_at'] = $line['created_at'];
     $query = 'INSERT INTO data (' . join(', ', array_keys($d)) . ') VALUES ("' . join('", "', array_values($d)) . '")';
     $result2 = mysql_query($query) or die('Запрос не удался: ' . mysql_error());
   }
