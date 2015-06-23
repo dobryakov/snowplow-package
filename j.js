@@ -7,7 +7,7 @@ jQuery(document).ready(function() {
   $('a.trackable-link').click(function(event){
 
     var target  = $(event.target).closest('a');
-    console.log(target);
+    //console.log(target);
 
     var data = {
       'category' : typeof target.attr('snowplow-category') == 'undefined' ? 'link'              : target.attr('snowplow-category'),
@@ -17,7 +17,7 @@ jQuery(document).ready(function() {
       'value'    : typeof target.attr('snowplow-value')    == 'undefined' ? target.attr('href') : target.attr('snowplow-value')
     };
 
-    console.log(data);
+    //console.log(data);
 
     if ( typeof snowplow !== 'undefined' ) {
       snowplow('trackStructEvent', data.category, data.action, data.label, data.property, data.value);

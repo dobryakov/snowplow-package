@@ -13,3 +13,22 @@ window.snowplow('newTracker', 'cf', 't.adaliska.com/s', { // Initialise a tracke
 window.snowplow('enableActivityTracking', 15, 30);
 window.snowplow('enableLinkClickTracking', {'whitelist': ['tracked', 'trackable']});
 window.snowplow('trackPageView');
+
+/*
+* Function to extract the Snowplow user ID from the first-party cookie set by the Snowplow JavaScript Tracker
+*
+* @param string cookieName (optional) The value used for "cookieName" in the tracker constructor argmap
+* (leave blank if you did not set a custom cookie name)
+*
+* @return string or bool The ID string if the cookie exists or false if the cookie has not been set yet
+*/
+function getSnowplowDuid(cookieName) {
+  cookieName = cookieName || '_sp_';
+  var matcher = new RegExp(cookieName + 'id\\.[a-f0-9]+=([^;]+);');
+  var match = document.cookie.match(matcher);
+  if (match && match[1]) {
+    return match[1].split('.')[0];
+  } else {
+    return false;
+  }
+}
