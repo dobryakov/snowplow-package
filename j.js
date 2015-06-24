@@ -20,7 +20,7 @@ jQuery(document).ready(function() {
     //console.log(data);
 
     if ( typeof snowplow !== 'undefined' ) {
-      snowplow('trackStructEvent', data.category, data.action, data.label, data.property, data.value);
+      snowplow('trackStructEvent', data.category, data.action, data.label, data.property, decodeURIComponent(data.value));
     }
 
   });
