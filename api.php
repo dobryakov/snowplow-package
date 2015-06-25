@@ -40,18 +40,32 @@ if ($resource == 'user') {
 
         }
 
+        // find words
+
+        $data['words'] = array();
+
+        $query = 'select words.word, nuids_words.c from nuids_words inner join words on words.id = nuids_words.word_id where network_userid = "' . mysql_escape_string($network_userid) .'" order by nuids_words.c desc';
+        $result3 = mysql_query($query) or die('Запрос не удался: ' . mysql_error());
+
+        while ($line3 = mysql_fetch_array($result3, MYSQL_ASSOC)) {
+
+            $word = $line3['word'];
+            $c    = $line3['c'];
+            $data['words'][] = array('word' => $word, 'c' => $c);
+
+        }
 
     }
 
 }
 
-if ($resource == 'pagegrab' && accessControl()) {
+if ($resource == 'pagegrab' && accessControl() && !filter_var($_REQUEST['url'], FILTER_VALIDATE_URL) === false) {
 
     $url = $_REQUEST['url'];
 
-    $html = file_get_contents($url);
+    $html = get_url($url);
 
-    $text = trim(strip_tags(preg_replace('#<script(.*?)>(.*?)</script>#is', '', $html)));
+    $text = trim(strip_tags(preg_replace('#<script(.*?)>(.*?)</script>#is', '', preg_replace('#<style(.*?)>(.*?)</style>#is', '', $html))));
 
     $filteredText = preg_replace("/\s+/i", ' ', preg_replace("/&#?[a-z0-9]+;/i","", preg_replace("#\r|\n|\t#", ' ', $text)));
 
@@ -82,4 +96,28 @@ function accessControl() {
     $ip = $_SERVER['REMOTE_ADDR'];
     $allowed_ips = array('127.0.0.1', '91.151.204.101', '162.210.198.46');
     return in_array($ip, $allowed_ips);
+}
+
+function get_url($url) {
+
+    $cacheDir = dirname(__FILE__) . '/cache';
+    if (!is_dir($cacheDir)) mkdir($cacheDir, 0755);
+
+    $cacheFile = $cacheDir . '/' . md5($url);
+    if (filemtime($cacheFile) < time() - 60*60*24*7) unlink($cacheFile);
+
+    if (file_exists($cacheFile)) {
+        //file_put_contents(dirname(__FILE__) . '/log/get_url.log', "Cache HIT: {$cacheFile} {$url}" . "\n", FILE_APPEND);
+        return file_get_contents($cacheFile);
+    }
+
+    file_put_contents(dirname(__FILE__) . '/log/get_url.log', "Cache MISS: {$url}" . "\n", FILE_APPEND);
+
+    $content = file_get_contents($url);
+    file_put_contents($cacheFile, $content);
+
+    //file_put_contents(dirname(__FILE__) . '/log/get_url.log', "Cached: {$cacheFile} {$url}" . "\n", FILE_APPEND);
+
+    return $content;
+
 }

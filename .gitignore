@@ -1,2 +1,5 @@
 /sp.log
 /mysql-connect.php
+/cache
+/data
+/log

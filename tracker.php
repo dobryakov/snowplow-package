@@ -22,7 +22,7 @@ flush();
 //$r = $_SERVER['REQUEST_URI'] . '&nuid=' . $c;
 $r = $_SERVER['QUERY_STRING'] . '&nuid=' . $c;
 
-file_put_contents(dirname(__FILE__) . '/sp.log', $r . "\n", FILE_APPEND);
+file_put_contents(dirname(__FILE__) . '/log/sp.log', $r . "\n", FILE_APPEND);
 
 include(dirname(__FILE__) . '/mysql-connect.php');
 include(dirname(__FILE__) . '/mysql-persist.php');
