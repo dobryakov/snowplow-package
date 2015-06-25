@@ -48,12 +48,12 @@ while ($line = mysql_fetch_array($result, MYSQL_ASSOC)) {
                 $collection = array();
 
                 // берём первые 5 слов (с самым большим вхождением)
-                $collection = array_slice(array_keys($words), 0, 5);
+                $collection = array_slice($words, 0, 5);
 
                 // добавляем слова от 5 символов и длиннее
-                foreach(array_keys($words) as $word) {
+                foreach($words as $word => $c) {
                     if (strlen($word) >= 5) {
-                        $collection[] = $word;
+                        $collection[$word] = $c;
                     }
                 }
 
@@ -61,11 +61,11 @@ while ($line = mysql_fetch_array($result, MYSQL_ASSOC)) {
 
                 //print_r($collection);
 
-                $query = "insert into urls (url) values ('". mysql_escape_string($url) ."') on duplicate key update c = c+1;";
+                $query = "insert IGNORE into urls (url) values ('". mysql_escape_string($url) ."') on duplicate key update c = c+0;";
                 mysql_query($query) or die('Запрос не удался: ' . mysql_error());
                 $url_id = mysql_insert_id();
 
-                foreach($collection as $word) {
+                foreach($collection as $word => $c) {
 
                     $query = "insert into words (word) values ('". mysql_escape_string($word) ."') on duplicate key update c = c+1;";
                     mysql_query($query) or die('Запрос не удался: ' . mysql_error());
@@ -74,8 +74,10 @@ while ($line = mysql_fetch_array($result, MYSQL_ASSOC)) {
                     $query = "insert into nuids_words (network_userid, word_id) values ('" . mysql_escape_string($network_userid) . "', " . $word_id . ") on duplicate key update c = c+1;";
                     mysql_query($query) or die('Запрос не удался: ' . mysql_error());
 
-                    $query = "insert into urls_words (url_id, word_id) values (" .$url_id . ", " . $word_id . ") on duplicate key update c = c+1;";
-                    mysql_query($query) or die('Запрос не удался: ' . mysql_error());
+                    if ($url_id) {
+                        $query = "insert into urls_words (url_id, word_id, c) values (" .$url_id . ", " . $word_id . ", " . intval($c) . ") on duplicate key update c = c + " . intval($c) . ";";
+                        mysql_query($query) or die('Запрос не удался: ' . mysql_error());
+                    }
 
                 }
 
