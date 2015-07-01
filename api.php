@@ -8,14 +8,23 @@ $format   = $_REQUEST['format'];
 $data     = array();
 
 include(dirname(__FILE__) . '/mysql-connect.php');
+include(dirname(__FILE__) . '/mongo-connect.php');
 
 if ($resource == 'user') {
 
-    $data = array('visited' => array('pages' => array(), 'hosts' => array()));
+    $data = array(
+        'visited' => array(
+            'pages' => array(),
+            'hosts' => array()
+        ),
+        'words' => array(),
+        'max_relative_words' => array(),
+        'recommend' => array()
+    );
 
     // find user by domain_userid (duid)
 
-    $query = 'SELECT network_userid FROM data WHERE domain_userid = "' . mysql_escape_string($id) . '" ORDER BY id DESC LIMIT 1000;';
+    $query = 'SELECT network_userid FROM data WHERE domain_userid = "' . mysql_escape_string($id) . '" ORDER BY id DESC LIMIT 1;';
     $result = mysql_query($query) or die('Запрос не удался: ' . mysql_error());
 
     while ($line = mysql_fetch_array($result, MYSQL_ASSOC)) {
@@ -24,6 +33,7 @@ if ($resource == 'user') {
 
         // find visited pages
 
+        /*
         $query = 'SELECT DISTINCT(page_url) FROM data WHERE network_userid = "' . mysql_escape_string($network_userid) . '";';
         $result2 = mysql_query($query) or die('Запрос не удался: ' . mysql_error());
 
@@ -39,6 +49,7 @@ if ($resource == 'user') {
             }
 
         }
+        */
 
         // find words
 
@@ -51,9 +62,74 @@ if ($resource == 'user') {
 
             $word = $line3['word'];
             $c    = $line3['c'];
-            $data['words'][] = array('word' => $word, 'c' => $c);
+            $data['words'][$word] = array(
+                'c' => $c
+            );
 
         }
+
+        $max = 0;
+        $rmax = 0;
+
+        foreach ($data['words'] as $word => $word_stats) {
+            $rmax = $rmax + $word_stats['c'];
+            if ($word_stats['c'] > $max) {
+                $max = $word_stats['c'];
+            }
+        }
+
+        foreach ($data['words'] as $word => $word_stats) {
+            $data['words'][$word]['p'] = round($word_stats['c'] * 100 / $max, 2);
+            $data['words'][$word]['r'] = round($word_stats['c'] * 100 / $rmax, 2);
+        }
+
+        // отбираем максимально релативные слова
+        $max_relative_words = array();
+
+        foreach ($data['words'] as $word => $word_stats) {
+            if ($word_stats['p'] >= 99) {
+                $max_relative_words[$word] = $word_stats;
+            }
+        }
+
+        $data['max_relative_words'] = $max_relative_words;
+
+        // обращаемся к mongo
+
+        $mongo_items = array();
+
+        foreach ($max_relative_words as $word => $word_stats) {
+            $p = intval(0.99 * $word_stats['p']);
+            //$mongo_items[] = "'words.{$word}':{\$gt:{$p}}";
+            $mongo_items[] = array("words.{$word}" => array('$gt' => $p));
+        }
+
+        //$mongo_query = '{' . join(', ', $mongo_items) . '}';
+        //$mongo_query = '{ $or: [ {' . join(', ', $mongo_items) . '} ] }';
+        $mongo_query = array(
+            '$or' => $mongo_items
+        );
+
+        //print_r($mongo_query);
+        //echo json_encode($mongo_query);
+
+        $cursor = $mongocollection->find($mongo_query, array('url', 'words_array', 'opengraph'));
+
+        $recommend = array();
+
+        foreach ($cursor as $obj) {
+            //echo 'Name: ' . $obj['name'] . '<br/>' . "\n";
+            //echo 'Quantity: ' . $obj['quantity'] . '<br/>' . "\n";
+            //echo 'Price: ' . $obj['price'] . '<br/>' . "\n";
+            //echo '<br/>' . "\n";
+            $recommend[] = array(
+                'url' => $obj['url']['url'],
+                'words_array' => $obj['words_array'],
+                'opengraph' => $obj['opengraph']
+            );
+        }
+
+        $data['recommend'] = $recommend;
 
     }
 
@@ -61,9 +137,24 @@ if ($resource == 'user') {
 
 if ($resource == 'pagegrab' && accessControl() && !filter_var($_REQUEST['url'], FILTER_VALIDATE_URL) === false) {
 
+    require_once(dirname(__FILE__) . '/OpenGraph.php');
+
+    $stopwordsfile = dirname(__FILE__) . '/stopwords.txt';
+    $stopwords = file($stopwordsfile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+
     $url = $_REQUEST['url'];
 
     $html = get_url($url);
+
+    $graph = OpenGraph::parse($html);
+    //var_dump($graph->keys());
+    //var_dump($graph->schema);
+
+    $opengraph_data = array();
+    foreach ($graph as $key => $value) {
+        //echo "$key => $value";
+        $opengraph_data[$key] = trim($value);
+    }
 
     $canonical_url = $url;
 
@@ -80,19 +171,43 @@ if ($resource == 'pagegrab' && accessControl() && !filter_var($_REQUEST['url'], 
 
     $words = array_map('strtolower', $words);
 
+    // вырезаем стоп-слова
+    $words = array_diff($words, $stopwords);
+
+    // вырезаем неалфавитно-цифровые символы и пустые слова
+    $words2 = array();
+    foreach($words as $word) {
+        $word = preg_replace('/[^a-z\-]/i', '', trim($word));
+        if (strlen($word) < 1) { continue; }
+        $words2[] = $word;
+    }
+
     //echo $filteredText;
-    //print_r($words);
+    //print_r($words2);
 
-    //$uniq_words = array_unique($words);
+    //$uniq_words = array_unique($words2);
 
-    $stats = array_count_values($words);
+    $stats = array_count_values($words2);
     arsort($stats);
 
-    $data = array('words' => $stats, 'canonical_url' => $canonical_url);
+    $max  = max(array_values($stats));
+    $rmax = array_sum(array_values($stats));
+
+    $stats2 = array();
+    foreach($stats as $word => $c) {
+        $stats2[$word] = array(
+            'c' => $c,
+            'p' => round($c * 100 / $max, 2),
+            'r' => round($c * 100 / $rmax, 2)
+        );
+    }
+
+    $data = array('words' => $stats2, 'canonical_url' => $canonical_url, 'opengraph' => $opengraph_data);
 
 }
 
 include(dirname(__FILE__) . '/mysql-close.php');
+include(dirname(__FILE__) . '/mongo-close.php');
 
 if ($format == 'json') {
     header("Content-type: application/json");

@@ -1,7 +1,7 @@
 <?php
 
 // Очистка результата
-if (isset($result)) { pg_free_result($result); }
+if (isset($pgresult)) { pg_free_result($pgresult); }
 
 // Закрытие соединения
-pg_close($dbconn);
+pg_close($pglink);

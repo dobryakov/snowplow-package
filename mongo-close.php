@@ -1,0 +1,3 @@
+<?php
+
+$mongoconn->close();
