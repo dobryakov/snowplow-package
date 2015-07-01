@@ -23,12 +23,43 @@ window.snowplow('trackPageView');
 * @return string or bool The ID string if the cookie exists or false if the cookie has not been set yet
 */
 function getSnowplowDuid(cookieName) {
-  cookieName = cookieName || '_sp_';
-  var matcher = new RegExp(cookieName + 'id\\.[a-f0-9]+=([^;]+);');
-  var match = document.cookie.match(matcher);
-  if (match && match[1]) {
-    return match[1].split('.')[0];
-  } else {
-    return false;
-  }
+    cookieName = cookieName || '_sp_';
+    var matcher = new RegExp(cookieName + 'id\\.[a-f0-9]+=([^;]+);');
+    var match = document.cookie.match(matcher);
+    if (match && match[1]) {
+        return match[1].split('.')[0];
+    } else {
+        return false;
+    }
 }
+
+var SnowplowUser = {};
+
+/*
+ * Get full info about current snowplow user
+ */
+jQuery(document).ready(function(){
+
+    $.ajax({
+        url: 'http://t.adaliska.com/s/api/user/' + getSnowplowDuid() + '.json',
+        type: 'GET',
+        data: {},
+        success: function (result) {
+            //console.log(result);
+            window.SnowplowUser = result;
+            $(document).trigger({
+                type: "SnowplowUserLoaded",
+                user: result
+            });
+        }
+    });
+
+    /*
+    // example usage:
+    $(document).on("SnowplowUserLoaded", {}, function (data){
+        console.log(data);
+        console.log(data.user);
+    });
+    */
+
+});

@@ -15,7 +15,7 @@ if ($resource == 'user') {
 
     // find user by domain_userid (duid)
 
-    $query = 'SELECT network_userid FROM data WHERE domain_userid = "' . mysql_escape_string($id) . '" ORDER BY id DESC LIMIT 1;';
+    $query = 'SELECT network_userid FROM data WHERE domain_userid = "' . mysql_escape_string($id) . '" ORDER BY id DESC LIMIT 1000;';
     $result = mysql_query($query) or die('Запрос не удался: ' . mysql_error());
 
     while ($line = mysql_fetch_array($result, MYSQL_ASSOC)) {
@@ -65,6 +65,13 @@ if ($resource == 'pagegrab' && accessControl() && !filter_var($_REQUEST['url'], 
 
     $html = get_url($url);
 
+    $canonical_url = $url;
+
+    preg_match_all("/link(\\s+)rel=(\"|')canonical(\"|')(\\s+)href=(\"|')(.+)(\"|')/i", $html, $_matches);
+    if (!empty($_matches[6][0]) && !filter_var($_matches[6][0], FILTER_VALIDATE_URL) === false) {
+        $canonical_url = $_matches[6][0];
+    }
+
     $text = trim(strip_tags(preg_replace('#<script(.*?)>(.*?)</script>#is', '', preg_replace('#<style(.*?)>(.*?)</style>#is', '', $html))));
 
     $filteredText = preg_replace("/\s+/i", ' ', preg_replace("/&#?[a-z0-9]+;/i","", preg_replace("#\r|\n|\t#", ' ', $text)));
@@ -81,7 +88,7 @@ if ($resource == 'pagegrab' && accessControl() && !filter_var($_REQUEST['url'], 
     $stats = array_count_values($words);
     arsort($stats);
 
-    $data = array('words' => $stats);
+    $data = array('words' => $stats, 'canonical_url' => $canonical_url);
 
 }
 

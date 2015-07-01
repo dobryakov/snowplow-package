@@ -5,7 +5,7 @@ include(dirname(__FILE__) . '/mysql-connect.php');
 $lastIdCacheFile = dirname(__FILE__) . '/data/worder-last-id.tmp';
 $lastId = intval(file_get_contents($lastIdCacheFile));
 
-$query = 'select * from data where network_userid is not null and id > ' . $lastId . ' order by id asc limit 1000;';
+$query = 'select * from data where network_userid is not null and id > ' . $lastId . ' order by id asc limit 1;';
 $result = mysql_query($query) or die('Запрос не удался: ' . mysql_error());
 
 while ($line = mysql_fetch_array($result, MYSQL_ASSOC)) {
@@ -61,7 +61,15 @@ while ($line = mysql_fetch_array($result, MYSQL_ASSOC)) {
 
                 //print_r($collection);
 
-                $query = "insert IGNORE into urls (url) values ('". mysql_escape_string($url) ."') on duplicate key update c = c+0;";
+                $url_parts = parse_url($url);
+                $host = $url_parts['host'];
+
+                $canonical_url = $url;
+                if (!empty($json['canonical_url'])) {
+                    $canonical_url = $json['canonical_url'];
+                }
+
+                $query = "insert IGNORE into urls (url, host) values ('". mysql_escape_string($canonical_url) ."', '" . mysql_escape_string($host) . "') on duplicate key update c = c+0;";
                 mysql_query($query) or die('Запрос не удался: ' . mysql_error());
                 $url_id = mysql_insert_id();
 
