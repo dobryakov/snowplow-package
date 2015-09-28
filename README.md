@@ -1,1 +1,3 @@
-The Snowplow javascript tracker and php collector package, with Apache mod_rewrite example.
+The cross-site javascript tracker and collector package based on Snowplow.
+
+This is a very early and fast prototype written by very dirty code. Please use it only for education purposes.
